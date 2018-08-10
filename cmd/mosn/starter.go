@@ -19,12 +19,12 @@ package mosn
 
 import (
 	"net"
-	"net/http"
 	"os"
 	"strconv"
-	"sync"
+    _ "net/http/pprof"
 
-	"github.com/psh686868/psh-mosn/pkg/api/v2"
+
+"github.com/psh686868/psh-mosn/pkg/api/v2"
 	"github.com/psh686868/psh-mosn/pkg/config"
 	"github.com/psh686868/psh-mosn/pkg/filter"
 	"github.com/psh686868/psh-mosn/pkg/log"
@@ -33,7 +33,8 @@ import (
 	"github.com/psh686868/psh-mosn/pkg/server/config/proxy"
 	"github.com/psh686868/psh-mosn/pkg/types"
 	"github.com/psh686868/psh-mosn/pkg/upstream/cluster"
-	"github.com/psh686868/psh-mosn/pkg/xds"
+	"sync"
+	"net/http"
 )
 
 // Mosn class which wrapper server
@@ -159,26 +160,28 @@ func (m *Mosn) Close() {
 // Start mosn project
 // stap1. NewMosn
 // step2. Start Mosn
-func Start(c *config.MOSNConfig, serviceCluster string, serviceNode string) {
-	log.StartLogger.Infof("start by config : %+v", c)
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+// 程序的入口，开始
 
+func Start(c *config.MOSNConfig, serviceCluster string, node string )  {
+	log.StartLogger.Infof("start config is : %+v", c)
+
+	group := sync.WaitGroup{}
+	// 后台进程
+	group.Add(1)
+
+	//性能监控
 	go func() {
-		// pprof server
-		http.ListenAndServe("0.0.0.0:9090", nil)
+		http.ListenAndServe("127.0.0.1:10080", nil)
 	}()
 
-	Mosn := NewMosn(c)
-	Mosn.Start()
-	////get xds config
-	xdsClient := xds.Client{}
-	xdsClient.Start(c, serviceCluster, serviceNode)
+	//create mosn
+	mosn := NewMosn(c) //server
+	mosn.Start()
+
 	//
-	////todo: daemon running
-	wg.Wait()
-	xdsClient.Stop()
+	group.Wait()
+
 }
 
 // getNetworkFilter

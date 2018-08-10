@@ -26,11 +26,11 @@ import (
 
 var (
 	cmdStart = cli.Command{
-		Name:  " ##### start ########",
+		Name:  "start",
 		Usage: "start mosn proxy",
 		Flags: []cli.Flag{
 			cli.StringFlag{
-				Name:   "config, c",
+				Name:   "config, c",// -c xxx.json
 				Usage:  "Load configuration from `FILE`",
 				EnvVar: "MOSN_CONFIG",
 				Value:  "configs/mosn_config.json",
@@ -44,13 +44,14 @@ var (
 				EnvVar: "SERVICE_NODE",
 			},
 		},
-		Action: func(cli *cli.Context) {
+		Action: func(cli *cli.Context) error  {
 			configPath := cli.String("config")
 			serviceCluster := cli.String("service-cluster")
 			node := cli.String("service-node")
 			// 加入配置文件
 			conf := config.Load(configPath)
 			mosn.Start(conf,serviceCluster,node)
+			return nil
 		},
 
 	}
