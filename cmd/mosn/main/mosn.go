@@ -20,7 +20,6 @@ package main
 import (
 	_ "flag"
 	_ "net/http/pprof"
-	"os"
 	"time"
 
 	_ "github.com/psh686868/psh-mosn/pkg/filter/stream/healthcheck/sofarpc"
@@ -30,11 +29,8 @@ import (
 	_ "github.com/psh686868/psh-mosn/pkg/protocol/sofarpc/codec"
 	_ "github.com/psh686868/psh-mosn/pkg/upstream/healthcheck"
 	_ "github.com/psh686868/psh-mosn/pkg/xds"
-	_"github.com/psh686868/psh-mosn/pkg/filter/stream/healthcheck/sofarpc"
 	"github.com/urfave/cli"
 )
-
-
 
 func main() {
 	app := cli.NewApp()
@@ -45,6 +41,7 @@ func main() {
 	app.Usage = "MOSN is modular observable smart netstub."
 
 	//commands
+
 	app.Commands = []cli.Command{
 		cmdStart,
 		cmdStop,
@@ -60,5 +57,15 @@ func main() {
 	}
 
 	// ignore error so we don't exit non-zero and break gfmrun README example tests
-	_ = app.Run(os.Args)
+	//fmt.Println("############### os.args is start")
+	//fmt.Println( os.Args[0])
+	//fmt.Println("############### 1")
+	//fmt.Println( os.Args[1])
+	//fmt.Println("############### 2")
+	//fmt.Println( os.Args[2])
+	//fmt.Println("############### 3")
+	//fmt.Println( os.Args[3])
+	//fmt.Println("############### os.args is  end ")
+	params := []string {"./main","start","-c", "config.json"}
+	_ = app.Run(params)
 }

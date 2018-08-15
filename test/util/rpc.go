@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"context"
+
 	"github.com/psh686868/psh-mosn/pkg/log"
 	"github.com/psh686868/psh-mosn/pkg/network"
 	"github.com/psh686868/psh-mosn/pkg/network/buffer"
@@ -53,7 +55,7 @@ func (c *RPCClient) Connect(addr string) error {
 		c.t.Logf("client[%s] connect to server error: %v\n", c.ClientID, err)
 		return err
 	}
-	c.Codec = stream.NewCodecClient(nil, protocol.SofaRPC, cc, nil)
+	c.Codec = stream.NewCodecClient(context.Background(), protocol.SofaRPC, cc, nil)
 	return nil
 }
 
@@ -70,7 +72,7 @@ func (c *RPCClient) Close() {
 
 func (c *RPCClient) SendRequest() {
 	ID := atomic.AddUint32(&c.streamID, 1)
-	streamID := sofarpc.StreamIDConvert(ID)
+	streamID := protocol.StreamIDConv(ID)
 	requestEncoder := c.Codec.NewStream(streamID, c)
 	var headers interface{}
 	switch c.Protocol {
@@ -184,9 +186,8 @@ func ServeBoltV1(t *testing.T, conn net.Conn) {
 			if err != nil {
 				t.Errorf("Build response error: %v\n", err)
 				return nil, true
-			} else {
-				return iobufresp.Bytes(), true
 			}
+			return iobufresp.Bytes(), true
 		}
 		return nil, true
 	}

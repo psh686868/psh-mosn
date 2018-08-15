@@ -19,6 +19,8 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,8 +30,6 @@ import (
 	"github.com/json-iterator/go"
 	"os/exec"
 	"errors"
-	"log"
-	"io/ioutil"
 )
 
 //global instance for load & dump
@@ -370,22 +370,26 @@ func (d DurationConfig) MarshalJSON() (b []byte, err error) {
 	return []byte(fmt.Sprintf(`"%s"`, d.String())), nil
 }
 
-func Load (path string) *MOSNConfig {
-	log.Println("config file path is : ", path)
-	bytes, err := ioutil.ReadFile(path)
+// Load config file and parse
+func Load(path string) *MOSNConfig {
 
-	if (err != nil) {
-		// print log and exit(1)
-		log.Fatalln()
+	s, _ := getCurrentPath()
+
+	log.Printf("path is ", s)
+
+	log.Println("load config from : ", path)
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatalln("load config failed, ", err)
+		os.Exit(1)
 	}
+	configPath, _ = filepath.Abs(path)
+	err = json.Unmarshal(content, &config)
 
-	// parse and init config
-	err = json.Unmarshal(bytes, &config)
-
-	if (err != nil) {
-		log.Fatalln("parse json file error ", err)
+	if err != nil {
+		log.Fatalln("json unmarshal config failed, ", err)
+		os.Exit(1)
 	}
-
 	return &config
 }
 

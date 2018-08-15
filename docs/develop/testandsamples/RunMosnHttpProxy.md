@@ -1,6 +1,6 @@
 ## 转发标准 HTTP 协议
 
-`psh-mosn/examples/http-sample`
+`sofa-mosn/examples/http-sample`
 样例工程演示了如何配置 SOFAMesh 来转发标准 HTTP 协议，而 SOFAMesh 之间的协议是 HTTP/2。
 
 ## 准备

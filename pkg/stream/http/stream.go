@@ -27,7 +27,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/psh686868/psh-mosn/pkg/log"
 	"github.com/psh686868/psh-mosn/pkg/network/buffer"
@@ -171,8 +170,8 @@ func (ssc *serverStreamConnection) OnGoAway() {
 
 //作为PROXY的STREAM SERVER
 func (ssc *serverStreamConnection) ServeHTTP(ctx *fasthttp.RequestCtx) {
-	//generate stream id using timestamp
-	streamID := "streamID-" + time.Now().String()
+	//generate stream id using global counter
+	streamID := protocol.GenerateIDString()
 
 	s := &serverStream{
 		stream: stream{
@@ -301,7 +300,7 @@ func (s *clientStream) AppendTrailers(trailers map[string]string) error {
 }
 
 func (s *clientStream) endStream() {
-	s.doSend()
+	go s.doSend()
 }
 
 func (s *clientStream) ReadDisable(disable bool) {
@@ -427,12 +426,12 @@ func (s *serverStream) handleRequest() {
 
 		// header
 		header := decodeReqHeader(s.ctx.Request.Header)
-		
+
 		// set host header if not found, just for insurance
 		if _, ok := header[protocol.MosnHeaderHostKey]; !ok {
 			header[protocol.MosnHeaderHostKey] = string(s.ctx.Host())
 		}
-		
+
 		// set path header if not found
 		if _, ok := header[protocol.MosnHeaderPathKey]; !ok {
 			header[protocol.MosnHeaderPathKey] = string(s.ctx.Path())
@@ -488,6 +487,9 @@ func decodeRespHeader(in fasthttp.ResponseHeader) (out map[string]string) {
 		// convert to lower case for internal process
 		out[strings.ToLower(string(key))] = string(value)
 	})
+
+	// inherit upstream's response status
+	out[types.HeaderStatus] = strconv.Itoa(in.StatusCode())
 
 	return
 }

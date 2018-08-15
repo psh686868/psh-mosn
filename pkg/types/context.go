@@ -29,10 +29,13 @@ const (
 	ContextKeyListenerStatsNameSpace     ContextKey = "ListenerStatsNameSpace"
 	ContextKeyNetworkFilterChainFactory  ContextKey = "NetworkFilterChainFactory"
 	ContextKeyStreamFilterChainFactories ContextKey = "StreamFilterChainFactory"
-	ContextKeyConnectionCodecMapPool     ContextKey = "ContextKeyConnectionCodecMapPool"
+	ContextKeyConnectionCodecMapPool     ContextKey = "ConnectionCodecMapPool"
+	ContextKeyConnectionBytesBufferPool  ContextKey = "ConnectionBytesBufferPool    "
 	ContextKeyLogger                     ContextKey = "Logger"
 	ContextKeyAccessLogs                 ContextKey = "AccessLogs"
 	ContextOriRemoteAddr                 ContextKey = "OriRemoteAddr"
+	ContextKeyAcceptChan                 ContextKey = "ContextKeyAcceptChan"
+	ContextKeyAcceptBuffer               ContextKey = "ContextKeyAcceptBuffer"
 )
 
 const (

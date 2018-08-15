@@ -1,7 +1,7 @@
 # MOSN Project
 
-[![Build Status](https://travis-ci.org/alipay/psh-mosn.svg?branch=master)](https://travis-ci.org/alipay/psh-mosn)
-[![codecov](https://codecov.io/gh/alipay/psh-mosn/branch/master/graph/badge.svg)](https://codecov.io/gh/alipay/psh-mosn)
+[![Build Status](https://travis-ci.org/psh686868/psh-mosn.svg?branch=master)](https://travis-ci.org/psh686868/psh-mosn)
+[![codecov](https://codecov.io/gh/psh686868/psh-mosn/branch/master/graph/badge.svg)](https://codecov.io/gh/psh686868/psh-mosn)
 [![Go Report Card](https://goreportcard.com/badge/github.com/psh686868/psh-mosn)](https://goreportcard.com/report/github.com/psh686868/psh-mosn)
 ![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)
 

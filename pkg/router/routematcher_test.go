@@ -41,8 +41,8 @@ func newTestSimpleRouter(name string) v2.Router {
 
 var testVirutalHostConfigs = map[string]*v2.VirtualHost{
 	"all":             &v2.VirtualHost{Name: "all", Domains: []string{"*"}, Routers: []v2.Router{newTestSimpleRouter("test")}},
-	"wildcard-domain": &v2.VirtualHost{Name: "wildcard-domain", Domains: []string{"*.psh-mosn.test"}, Routers: []v2.Router{newTestSimpleRouter("test")}},
-	"domain":          &v2.VirtualHost{Name: "domain", Domains: []string{"www.psh-mosn.test"}, Routers: []v2.Router{newTestSimpleRouter("test")}},
+	"wildcard-domain": &v2.VirtualHost{Name: "wildcard-domain", Domains: []string{"*.sofa-mosn.test"}, Routers: []v2.Router{newTestSimpleRouter("test")}},
+	"domain":          &v2.VirtualHost{Name: "domain", Domains: []string{"www.sofa-mosn.test"}, Routers: []v2.Router{newTestSimpleRouter("test")}},
 }
 
 func TestNewRouteMatcherSingle(t *testing.T) {
@@ -115,7 +115,7 @@ func TestNewRouteMatcherDuplicate(t *testing.T) {
 	}); err == nil {
 		t.Error("expected an error occur, but not")
 	}
-	//two virtualhosts, both domain is "www.psh-mosn.test", expected failed
+	//two virtualhosts, both domain is "www.sofa-mosn.test", expected failed
 	if _, err := NewRouteMatcher(&v2.Proxy{
 		VirtualHosts: []*v2.VirtualHost{testVirutalHostConfigs["domain"], testVirutalHostConfigs["domain"]},
 	}); err == nil {
@@ -181,7 +181,7 @@ func TestDomainMatch(t *testing.T) {
 		return
 	}
 	if routers.Route(map[string]string{
-		strings.ToLower(protocol.MosnHeaderHostKey): "www.psh-mosn.test",
+		strings.ToLower(protocol.MosnHeaderHostKey): "www.sofa-mosn.test",
 		"service": "test",
 	}, 1) == nil {
 		t.Error("domain match failed")
@@ -189,11 +189,11 @@ func TestDomainMatch(t *testing.T) {
 	//not matched
 	notMatched := []string{
 		"*",
-		"*www.psh-mosn.test",
-		"psh-mosn.test",
-		"www.psh-mosn",
-		"www.psh-mosn.test1",
-		"*.psh-mosn.test",
+		"*www.sofa-mosn.test",
+		"sofa-mosn.test",
+		"www.sofa-mosn",
+		"www.sofa-mosn.test1",
+		"*.sofa-mosn.test",
 	}
 	for i, tc := range notMatched {
 		if routers.Route(map[string]string{

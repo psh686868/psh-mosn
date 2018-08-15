@@ -28,7 +28,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/psh686868/psh-mosn/pkg/log"
 	"github.com/psh686868/psh-mosn/pkg/network/buffer"
@@ -165,8 +164,8 @@ func (ssc *serverStreamConnection) OnGoAway() {
 
 //作为PROXY的STREAM SERVER
 func (ssc *serverStreamConnection) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
-	//generate stream id using timestamp
-	streamID := "streamID-" + time.Now().String()
+	//generate stream id using global counter
+	streamID := protocol.GenerateIDString()
 
 	stream := &serverStream{
 		stream: stream{
@@ -246,27 +245,27 @@ func (s *clientStream) AppendHeaders(headers interface{}, endStream bool) error 
 		s.request.URL, _ = url.Parse(fmt.Sprintf("http://%s/",
 			s.connection.connection.RemoteAddr().String()))
 	}
-	
+
 	if path, ok := headersMap[protocol.MosnHeaderPathKey]; ok {
 		s.request.URL, _ = url.Parse(fmt.Sprintf("http://%s%s",
 			s.connection.connection.RemoteAddr().String(), path))
 		delete(headersMap, protocol.MosnHeaderPathKey)
 	}
-	
+
 	if _, ok := headersMap["Host"]; ok {
 		headersMap["Host"] = s.connection.connection.RemoteAddr().String()
 		s.request.Host = s.connection.connection.RemoteAddr().String()
 	}
-	
+
 	// delete inner header
 	if _, ok := headersMap[protocol.MosnHeaderQueryStringKey]; ok {
 		delete(headersMap, protocol.MosnHeaderQueryStringKey)
 	}
-	
+
 	if _, ok := headersMap[protocol.MosnHeaderMethod]; ok {
 		delete(headersMap, protocol.MosnHeaderMethod)
 	}
-	
+
 	if _, ok := headersMap[protocol.MosnHeaderHostKey]; ok {
 		delete(headersMap, protocol.MosnHeaderHostKey)
 	}
@@ -311,7 +310,7 @@ func (s *clientStream) AppendTrailers(trailers map[string]string) error {
 }
 
 func (s *clientStream) endStream() {
-	s.doSend()
+	go s.doSend()
 }
 
 func (s *clientStream) ReadDisable(disable bool) {
@@ -383,7 +382,7 @@ func (s *clientStream) CleanStream() {
 
 func (s *clientStream) handleResponse() {
 	if s.response != nil {
-		s.decoder.OnReceiveHeaders(decodeHeader(s.response.Header), false)
+		s.decoder.OnReceiveHeaders(decodeRespHeader(s.response), false)
 		buf := &buffer.IoBuffer{}
 		buf.ReadFrom(s.response.Body)
 		s.decoder.OnReceiveData(buf, false)
@@ -413,16 +412,16 @@ func (s *serverStream) AppendHeaders(headersIn interface{}, endStream bool) erro
 
 	if s.response == nil {
 		s.response = new(http.Response)
+	}
+
+	if value, ok := headers[types.HeaderStatus]; ok {
+		s.response.StatusCode, _ = strconv.Atoi(value)
+		delete(headers, types.HeaderStatus)
+	} else {
 		s.response.StatusCode = 200
 	}
 
 	s.response.Header = encodeHeader(headers)
-
-	if status, ok := headers[types.HeaderStatus]; ok {
-		s.response.StatusCode, _ = strconv.Atoi(status)
-		s.response.Header.Del(types.HeaderStatus)
-		delete(headers, types.HeaderStatus)
-	}
 
 	if endStream {
 		s.endStream()
@@ -508,26 +507,26 @@ func (s *serverStream) doSend() {
 
 func (s *serverStream) handleRequest() {
 	if s.request != nil {
-		
+
 		header := decodeHeader(s.request.Header)
-		
+
 		// set host header if not found, just for insurance
-		if _,ok := header[protocol.MosnHeaderHostKey]; !ok {
+		if _, ok := header[protocol.MosnHeaderHostKey]; !ok {
 			header[protocol.MosnHeaderHostKey] = s.request.Host
 		}
-		
+
 		// set path header if not found
 		path, queryString := parsePathFromURI(s.request.RequestURI)
-		
+
 		if _, ok := header[protocol.MosnHeaderPathKey]; !ok {
 			header[protocol.MosnHeaderPathKey] = string(path)
 		}
-		
+
 		// set query string header if not found
 		if _, ok := header[protocol.MosnHeaderQueryStringKey]; !ok {
 			header[protocol.MosnHeaderQueryStringKey] = string(queryString)
 		}
-		
+
 		s.decoder.OnReceiveHeaders(header, false)
 
 		//remove detect
@@ -562,7 +561,17 @@ func decodeHeader(in map[string][]string) (out map[string]string) {
 		out[strings.ToLower(k)] = strings.Join(v, ",")
 	}
 
+	// inherit upstream's response status
 	return
+}
+
+func decodeRespHeader(resp *http.Response) (out map[string]string) {
+	header := decodeHeader(resp.Header)
+
+	// inherit upstream's response status
+	header[types.HeaderStatus] = strconv.Itoa(resp.StatusCode)
+
+	return header
 }
 
 // io.ReadCloser
@@ -581,19 +590,16 @@ func (rc *IoBufferReadCloser) Close() error {
 
 // GET /rest/1.0/file?fields=P_G&bz=test
 // return path and query string
-func parsePathFromURI(reuestURI string) (string,string){
-	
+func parsePathFromURI(reuestURI string) (string, string) {
+
 	if "" == reuestURI {
-		return "",""
+		return "", ""
 	}
-	
+
 	queryMaps := strings.Split(reuestURI, "?")
 	if len(queryMaps) > 1 {
-		return queryMaps[0],queryMaps[1]
-	} else {
-		return queryMaps[0],""
+		return queryMaps[0], queryMaps[1]
 	}
+	return queryMaps[0], ""
 
 }
-
-

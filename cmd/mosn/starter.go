@@ -19,12 +19,12 @@ package mosn
 
 import (
 	"net"
+	"net/http"
 	"os"
 	"strconv"
-    _ "net/http/pprof"
+	"sync"
 
-
-"github.com/psh686868/psh-mosn/pkg/api/v2"
+	"github.com/psh686868/psh-mosn/pkg/api/v2"
 	"github.com/psh686868/psh-mosn/pkg/config"
 	"github.com/psh686868/psh-mosn/pkg/filter"
 	"github.com/psh686868/psh-mosn/pkg/log"
@@ -33,8 +33,8 @@ import (
 	"github.com/psh686868/psh-mosn/pkg/server/config/proxy"
 	"github.com/psh686868/psh-mosn/pkg/types"
 	"github.com/psh686868/psh-mosn/pkg/upstream/cluster"
-	"sync"
-	"net/http"
+	"github.com/psh686868/psh-mosn/pkg/xds"
+	"github.com/psh686868/psh-mosn/pkg/network"
 )
 
 // Mosn class which wrapper server
@@ -45,90 +45,85 @@ type Mosn struct {
 // NewMosn
 // Create server from mosn config
 func NewMosn(c *config.MOSNConfig) *Mosn {
-	m := &Mosn{}
+	m := &Mosn{} // create Mosn
+
+	// config server from config file
 	mode := c.Mode()
-	
+
+	// 只从文件读取
 	if mode == config.Xds {
-		servers := make([]config.ServerConfig, 0, 1)
-		server := config.ServerConfig{
-			DefaultLogPath:  "stdout",
-			DefaultLogLevel: "INFO",
-		}
-		servers = append(servers, server)
-		c.Servers = servers
-	} else {
-		if c.ClusterManager.Clusters == nil || len(c.ClusterManager.Clusters) == 0 {
-			if !c.ClusterManager.AutoDiscovery {
-				log.StartLogger.Fatalln("no cluster found and cluster manager doesn't support auto discovery")
-			}
-		}
+		log.StartLogger.Fatalln("现在只做从文件读取文件")
+	}
+	if c.ClusterManager.Clusters == nil || len(c.ClusterManager.Clusters) == 0 {
+		log.StartLogger.Fatalln("客户端失败")
 	}
 
-	srvNum := len(c.Servers)
-	
-	if srvNum == 0 {
-		log.StartLogger.Fatalln("no server found")
-	} else if srvNum > 1 {
-		log.StartLogger.Fatalln("multiple server not supported yet, got ", srvNum)
+	countClues := len(c.ClusterManager.Clusters)
+
+	if countClues == 0 {
+		log.StartLogger.Fatalln("请配置 clusters")
 	}
-	//get inherit fds
+
+	// get inherit fds 慢慢消化
 	inheritListeners := getInheritListeners()
-	
-	//cluster manager filter
+
+	//get inherit fds
+	//inheritListeners := getInheritListeners()
+
+	// load filter
 	cmf := &clusterManagerFilter{}
-	
-	// parse cluster all in one
+
+	//parse cluster all in one  并且进行心跳检查
 	clusters, clusterMap := config.ParseClusterConfig(c.ClusterManager.Clusters)
-	
+
 	for _, serverConfig := range c.Servers {
-		//1. server config prepare
-		//server config
+		// 1. erver config prepare
+		// server config
 		sc := config.ParseServerConfig(&serverConfig)
+
+		//create cluster manager
 
 		// init default log
 		server.InitDefaultLogger(sc)
 
-		var srv server.Server
-		if mode == config.Xds {
-			cmf := &clusterManagerFilter{}
-			cm := cluster.NewClusterManager(nil, nil, nil, true, false)
-			srv = server.NewServer(sc, cmf, cm)
+		cm := cluster.NewClusterManager(nil, clusters, clusterMap, c.ClusterManager.AutoDiscovery, c.ClusterManager.RegistryUseHealthCheck)
 
-		} else {
-			//create cluster manager
-			cm := cluster.NewClusterManager(nil, clusters, clusterMap, c.ClusterManager.AutoDiscovery, c.ClusterManager.RegistryUseHealthCheck)
-			//initialize server instance
-			srv = server.NewServer(sc, cmf, cm)
+		// init  server
+		srv := server.NewServer(sc, cmf, cm)
 
-			//add listener
-			if serverConfig.Listeners == nil || len(serverConfig.Listeners) == 0 {
-				log.StartLogger.Fatalln("no listener found")
+		//add listener
+
+		if serverConfig.Listeners == nil || len(serverConfig.Listeners) == 0 {
+			log.StartLogger.Fatalln("no listenner found")
+		}
+
+		for _, listenerConfig := range serverConfig.Listeners {
+
+			// parse ListenerConfig
+			lc := config.ParseListenerConfig(&listenerConfig, inheritListeners)
+
+			nfcf, downstreamProtocol := getNetworkFilter(&lc.FilterChains[0])
+
+			// Note: as we use fasthttp and net/http2.0, the IO we created in mosn should be disabled
+			// in the future, if we realize these two protocol by-self, this this hack method should be removed
+			if downstreamProtocol == string(protocol.HTTP2) || downstreamProtocol == string(protocol.HTTP1) {
+				lc.DisableConnIo = true
 			}
 
-			for _, listenerConfig := range serverConfig.Listeners {
-				// parse ListenerConfig
-				lc := config.ParseListenerConfig(&listenerConfig, inheritListeners)
-				
-				nfcf,downstreamProtocol := getNetworkFilter(&lc.FilterChains[0])
-				
-				if downstreamProtocol == string(protocol.HTTP2) {
-					lc.DisableConnIo = true
-				}
-				
-				// network filters
-				if lc.HandOffRestoredDestinationConnections {
-					srv.AddListener(lc, nil, nil)
-					continue
-				}
-				
-				//stream filters
-				sfcf := getStreamFilters(listenerConfig.StreamFilters)
-				config.SetGlobalStreamFilter(sfcf)
-				srv.AddListener(lc, nfcf, sfcf)
+			// network filters
+			if lc.HandOffRestoredDestinationConnections {
+				srv.AddListener(lc, nil, nil)
+				continue
 			}
+
+			//stream filters
+			sfcf := getStreamFilters(listenerConfig.StreamFilters)
+			config.SetGlobalStreamFilter(sfcf)
+			srv.AddListener(lc, nfcf, sfcf)
 		}
 		m.servers = append(m.servers, srv)
 	}
+
 	//parse service registry info
 	config.ParseServiceRegistry(c.ServiceRegistry)
 
@@ -139,7 +134,12 @@ func NewMosn(c *config.MOSNConfig) *Mosn {
 			ln.InheritListener.Close()
 		}
 	}
-	
+
+	// set TransferTimeout
+	network.TransferTimeout = server.GracefulTimeout
+	// transfer old mosn connections
+	go network.TransferServer(m.servers[0].Handler())
+
 	return m
 }
 
@@ -160,28 +160,26 @@ func (m *Mosn) Close() {
 // Start mosn project
 // stap1. NewMosn
 // step2. Start Mosn
+func Start(c *config.MOSNConfig, serviceCluster string, serviceNode string) {
+	log.StartLogger.Infof("start by config : %+v", c)
 
-// 程序的入口，开始
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 
-func Start(c *config.MOSNConfig, serviceCluster string, node string )  {
-	log.StartLogger.Infof("start config is : %+v", c)
-
-	group := sync.WaitGroup{}
-	// 后台进程
-	group.Add(1)
-
-	//性能监控
 	go func() {
-		http.ListenAndServe("127.0.0.1:10080", nil)
+		// pprof server
+		http.ListenAndServe("0.0.0.0:9090", nil)
 	}()
 
-	//create mosn
-	mosn := NewMosn(c) //server
-	mosn.Start()
-
+	Mosn := NewMosn(c)
+	Mosn.Start()
+	////get xds config
+	xdsClient := xds.Client{}
+	xdsClient.Start(c, serviceCluster, serviceNode)
 	//
-	group.Wait()
-
+	////todo: daemon running
+	wg.Wait()
+	xdsClient.Stop()
 }
 
 // getNetworkFilter

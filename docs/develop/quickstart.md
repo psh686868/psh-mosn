@@ -28,8 +28,8 @@ mkdir -p github.com/alipay
 cd github.com/alipay
 
 # clone mosn代码
-git clone git@github.com:alipay/psh-mosn.git
-cd psh-mosn
+git clone git@github.com:psh686868/psh-mosn.git
+cd sofa-mosn
 ```
 
 最终MOSN的源代码代码路径为 `$GOPATH/src/github.com/psh686868/psh-mosn`
@@ -81,7 +81,7 @@ make unit-test
 
 单独运行 MOSN 作为 proxy 转发的示例:
 
-+ 参考 `psh-mosn/test/` 下的[示例](testandsamples/RunMosnTests.md)
++ 参考 `sofa-mosn/test/` 下的[示例](testandsamples/RunMosnTests.md)
 
 ## 从配置文件[启动 MOSN](../reference/HowtoStartMosnFromConfig.md)
 

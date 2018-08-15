@@ -18,10 +18,10 @@
 package main
 
 import (
-	"github.com/urfave/cli"
-	"time"
 	"github.com/psh686868/psh-mosn/pkg/config"
 	"github.com/psh686868/psh-mosn/cmd/mosn"
+	"github.com/urfave/cli"
+	"time"
 )
 
 var (
@@ -30,7 +30,7 @@ var (
 		Usage: "start mosn proxy",
 		Flags: []cli.Flag{
 			cli.StringFlag{
-				Name:   "config, c",// -c xxx.json
+				Name:   "config, c",
 				Usage:  "Load configuration from `FILE`",
 				EnvVar: "MOSN_CONFIG",
 				Value:  "configs/mosn_config.json",
@@ -44,16 +44,14 @@ var (
 				EnvVar: "SERVICE_NODE",
 			},
 		},
-		Action: func(cli *cli.Context) error  {
-			configPath := cli.String("config")
-			serviceCluster := cli.String("service-cluster")
-			node := cli.String("service-node")
-			// 加入配置文件
+		Action: func(c *cli.Context) error {
+			configPath := c.String("config")
+			serviceCluster := c.String("service-cluster")
+			serviceNode := c.String("service-node")
 			conf := config.Load(configPath)
-			mosn.Start(conf,serviceCluster,node)
+			mosn.Start(conf, serviceCluster, serviceNode)
 			return nil
 		},
-
 	}
 
 	cmdStop = cli.Command{
@@ -71,6 +69,7 @@ var (
 			return nil
 		},
 	}
+
 )
 
 func main() {
@@ -97,7 +96,7 @@ func main() {
 		return nil
 	}
 
-	//
+
 	params := []string {"./main","start","-c", "configs/config.json"}
 	_ = app.Run(params)
 }
